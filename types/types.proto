@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+message SetParams {
+    bytes Key = 1;
+    bytes Value = 2;
+}
+
+message QueryParams {
+    bytes Key = 1;
+}
+
+message QueryResult {
+    bytes Key = 1;
+    bytes Value = 2;
+}
