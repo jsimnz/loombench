@@ -11,15 +11,19 @@ func main() {
 	plugin.Serve(Contract)
 }
 
-type SimpleStore struct {}
+type SimpleStore struct{}
 
 var Contract plugin.Contract = contract.MakePluginContract(&SimpleStore{})
 
 func (self *SimpleStore) Meta() (plugin.Meta, error) {
 	return plugin.Meta{
-		Name: "SimpleStore",
+		Name:    "SimpleStore",
 		Version: "0.0.1",
 	}, nil
+}
+
+func (self *SimpleStore) Init(ctx contract.Context, req *plugin.Request) error {
+	return nil
 }
 
 func (self *SimpleStore) Set(ctx contract.Context, params *types.SetParams) error {
