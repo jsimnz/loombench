@@ -91,6 +91,7 @@ func main() {
 
 			var result types.QueryResult
 			err := cli.StaticCallContract(defaultContract, "Get", msg, &result)
+			_ = cli.StaticCallContract(defaultContract, "Get", msg, nil)
 			if err != nil {
 				return err
 			}
