@@ -49,6 +49,11 @@ func NewRPCRequest(method string, params json.RawMessage, id string) RPCRequest 
 type JSONRPCClient struct {
 	host   string
 	client *http.Client
+	reqMaker func(*http.Requests) *http.Request
+}
+
+type TracedJSONRPCClient struct {
+	JSONRPCClient
 }
 
 func newHTTPDialer(host string) func(string, string) (net.Conn, error) {
@@ -68,14 +73,28 @@ func newHTTPDialer(host string) func(string, string) (net.Conn, error) {
 	}
 }
 
-func NewJSONRPCClient(host string) *JSONRPCClient {
+func NewJSONRPCClient(client *http.Client, host string) *JSONRPCClient {
+	client.Transport.Dial = newHTTPDialer(host)
 	return &JSONRPCClient{
 		host: host,
-		client: &http.Client{
-			Transport: &http.Transport{
-				Dial: newHTTPDialer(host),
-			},
-		},
+		client: client,
+	}
+}
+
+// func NewTracedJSONRPCClient(host string) *JSONRPCClient {
+// 	return &JSONRPCClient{
+// 		host: host,
+// 		client: &http.Client{
+// 			Transport: &http.Transport{
+// 				Dial: newHTTPDialer(host),
+// 			},
+// 		},
+// 	}
+// }
+
+func (c *JSONRPCClient) UseTrace(trace *httptrace.ClientTrace) {
+	c.reqMaker = func(req *http.Request) *http.Request {
+		return req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	}
 }
 
@@ -89,7 +108,15 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, id st
 	if err != nil {
 		return err
 	}
-	resp, err := c.client.Post(c.host, "text/json", bytes.NewBuffer(reqBytes))
+
+	req, err := http.NewRequest("POST", c.host, bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "text/json")
+	resp, err := c.doReq(req)
+	// resp, err := c.client.Post(c.host, "text/json", )
+
 	if err != nil {
 		return err
 	}
@@ -109,4 +136,11 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, id st
 		return fmt.Errorf("error unmarshalling rpc response result: %v", err)
 	}
 	return nil
+}
+
+func (c *JSONRPCClient) doReq(req *http.Request) (*http.Response, error) {
+	if c.reqMaker != nil {
+		req = c.reqMaker(req)
+	}
+	return c.client.Do(req)
 }

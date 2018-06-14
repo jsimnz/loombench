@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jsimnz/loombench/loomclient"
+
 	"golang.org/x/net/http2"
 )
 
@@ -56,7 +58,7 @@ type Work struct {
 	// Request is the request to be made.
 	Request *http.Request
 
-	RequestBody []byte
+	RequestBody proto.Message
 
 	// N is the total number of requests to make.
 	N int
@@ -89,6 +91,15 @@ type Work struct {
 	// ProxyAddr is the address of HTTP proxy server in the format on "host:port".
 	// Optional.
 	ProxyAddr *url.URL
+
+	// Contract Address
+	ContractAddress string
+
+	// Method to call on the Loom Contract
+	ContractMethod string
+
+	// Loom Chain ID
+	ChainID string
 
 	// Loom Write URL
 	WriteURL string
@@ -154,20 +165,14 @@ func (b *Work) Finish() {
 	b.report.finalize(total)
 }
 
-func (b *Work) makeRequest(c *http.Client) {
+func (b *Work) makeRequest(c *loomclient.ContractClient, rpc *loomclient.DAppChainRPCClient) {
 	s := now()
 	var size int64
 	var code int
 	var dnsStart, connStart, resStart, reqStart, delayStart time.Duration
 	var dnsDuration, connDuration, resDuration, reqDuration, delayDuration time.Duration
-	req := cloneRequest(b.Request, b.RequestBody)
+	// req := cloneRequest(b.Request, b.RequestBody)
 	trace := &httptrace.ClientTrace{
-		DNSStart: func(info httptrace.DNSStartInfo) {
-			dnsStart = now()
-		},
-		DNSDone: func(dnsInfo httptrace.DNSDoneInfo) {
-			dnsDuration = now() - dnsStart
-		},
 		GetConn: func(h string) {
 			connStart = now()
 		},
@@ -186,22 +191,32 @@ func (b *Work) makeRequest(c *http.Client) {
 			resStart = now()
 		},
 	}
-	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
-	resp, err := c.Do(req)
-	if err == nil {
-		size = resp.ContentLength
-		code = resp.StatusCode
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-	}
+
+	// TODO: Save request body from contract params and clone request on each call
+	// 		 to save time from client overhead.
+	// add traceclient to DAppChainRPCClient
+	rpc.UseTrace(trace)
+	// make Loom Call
+	err := lc.Call(b.ContractMethod, b.RequestBody, nil)
+	
+
+	// req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	// resp, err := c.Do(req)
+	// if err == nil {
+	// 	size = resp.ContentLength
+	// 	code = resp.StatusCode
+	// 	io.Copy(ioutil.Discard, resp.Body)
+	// 	resp.Body.Close()
+	// }
 	t := now()
 	resDuration = t - resStart
 	finish := t - s
 	b.results <- &result{
-		statusCode:    code,
+		// statusCode:    code,
+		statusCode: 200 // TODO: Get stausCoec from Loom Call
 		duration:      finish,
 		err:           err,
-		contentLength: size,
+		contentLength: 0, // TODO: Get ContentLength from Loom Call
 		connDuration:  connDuration,
 		dnsDuration:   dnsDuration,
 		reqDuration:   reqDuration,
@@ -221,6 +236,12 @@ func (b *Work) runWorker(client *http.Client, n int) {
 			return http.ErrUseLastResponse
 		}
 	}
+
+	lc, rpc, err := b.createWorkerClients(httpclient) // Create Loom Client
+	if err != nil {
+		panic(err)
+	}
+
 	for i := 0; i < n; i++ {
 		// Check if application is stopped. Do not send into a closed channel.
 		select {
@@ -230,7 +251,7 @@ func (b *Work) runWorker(client *http.Client, n int) {
 			if b.QPS > 0 {
 				<-throttle
 			}
-			b.makeRequest(client)
+			b.makeRequest(lc, rpc)
 		}
 	}
 }
@@ -254,16 +275,44 @@ func (b *Work) runWorkers() {
 	} else {
 		tr.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
 	}
-	client := &http.Client{Transport: tr, Timeout: time.Duration(b.Timeout) * time.Second}
+	httpclient := &http.Client{Transport: tr, Timeout: time.Duration(b.Timeout) * time.Second}
 
 	// Ignore the case where b.N % b.C != 0.
 	for i := 0; i < b.C; i++ {
 		go func() {
-			b.runWorker(client, b.N/b.C)
+			b.runWorker(httpclient, b.N/b.C)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+}
+
+func (b *Work) createWorkerClients(httpclient *http.Client) (*client.Contract, *loomclient.DAppChainRPCClient, error) {
+	// create signer
+	var signer *auth.Signer
+	var err error
+	if b.PrivateKey = "genkey" {
+		_, privKey, err := ed25519.GenerateKey(nil)
+	} else {
+		privKeyB64, err := ioutil.ReadFile(b.PrivateKey)
+		if err != nil {
+			return err
+		}
+
+		privKey, err := base64.StdEncoding.DecodeString(string(privKeyB64))
+		if err != nil {
+			return err
+		}
+	}
+	if err != nil {
+		return err
+	}
+	signer := auth.NewEd25519Signer(privKey)
+
+	rpcClient := loomclient.NewDappChainRPCClient(httpclient, b.ChainID, b.WriteURL, b.ReadURL)
+	client, err := loomclient.NewContractClient(b.ContractAddress, b.ChainID, signer, rpcClient)
+	
+	return client, rpcClient, err
 }
 
 // cloneRequest returns a clone of the provided *http.Request.

@@ -40,15 +40,20 @@ type DAppChainRPCClient struct {
 // URI parameters should be specified as "tcp://<host>:<port>", writeURI the host that txs will be
 // submitted to (port 46657 by default), readURI is the host that will be queried for current app
 // state (47000 by default).
-func NewDAppChainRPCClient(chainID, writeURI, readURI string) *DAppChainRPCClient {
+func NewDAppChainRPCClient(httpclient *http.Client, chainID, writeURI, readURI string) *DAppChainRPCClient {
 	return &DAppChainRPCClient{
 		chainID:       chainID,
 		writeURI:      writeURI,
 		readURI:       readURI,
-		txClient:      NewJSONRPCClient(writeURI),
-		queryClient:   NewJSONRPCClient(readURI),
+		// txClient:      NewJSONRPCClient(writeURI),
+		txClient NewJSONRPCClient(httpclient, writeURI),
+		queryClient:   NewJSONRPCClient(httpclient, readURI),
 		nextRequestID: 1,
 	}
+}
+
+func (c *DAppChainRPCClient) UseTrace(trace *httptrace.ClientTrace) {
+	c.txClient.UseTrace(trace)
 }
 
 func (c *DAppChainRPCClient) getNextRequestID() string {

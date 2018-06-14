@@ -13,3 +13,19 @@ message QueryResult {
     bytes Key = 1;
     bytes Value = 2;
 }
+
+message LoomBenchWriteTx {
+    bytes Key = 1;
+    bytes Val = 2;
+}
+
+message LoomBenchReadTx {
+    bytes Key = 1;
+}
+
+message LoomBenchResp {
+    bytes Val = 1;
+}
+
+
+

@@ -35,10 +35,10 @@ func (contract *ContractClient) Call(method string, params proto.Message, result
 	return err
 }
 
-func (contract *ContractClient) StaticCall() {
-	_, err := contract.c.StaticCall(method, params, loom.RootAddress(contract.chainID), result)
-	return err
-}
+// func (contract *ContractClient) StaticCall() {
+// 	_, err := contract.c.StaticCall(method, params, loom.RootAddress(contract.chainID), result)
+// 	return err
+// }
 
 func (contract *ContractClient) parseAddress(s string) (loom.Address, error) {
 	addr, err := loom.ParseAddress(s)
