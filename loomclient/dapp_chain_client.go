@@ -3,6 +3,8 @@ package loomclient
 import (
 	"encoding/hex"
 	"errors"
+	"net/http"
+	"net/http/httptrace"
 	"strconv"
 
 	"github.com/gogo/protobuf/proto"
@@ -45,8 +47,7 @@ func NewDAppChainRPCClient(httpclient *http.Client, chainID, writeURI, readURI s
 		chainID:       chainID,
 		writeURI:      writeURI,
 		readURI:       readURI,
-		// txClient:      NewJSONRPCClient(writeURI),
-		txClient NewJSONRPCClient(httpclient, writeURI),
+		txClient:      NewJSONRPCClient(httpclient, writeURI),
 		queryClient:   NewJSONRPCClient(httpclient, readURI),
 		nextRequestID: 1,
 	}

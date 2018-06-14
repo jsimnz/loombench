@@ -51,11 +51,12 @@ var (
 	cpus              = flag.Int("cpus", runtime.GOMAXPROCS(-1), "")
 	disableKeepAlives = flag.Bool("disable-keepalive", false, "")
 
-	writeURL   = flag.String("w", "http://localhost:46658/rpc", "")
-	readURL    = flag.String("r", "http://localhost:46658/query", "")
-	chainID = flag.String("i", "default", "")
-	contractAddr = flag.String("a", "loombench", "")
-	privateKey = flag.String("p", "genkey", "")
+	writeURL       = flag.String("w", "http://localhost:46658/rpc", "")
+	readURL        = flag.String("r", "http://localhost:46658/query", "")
+	chainID        = flag.String("i", "default", "")
+	contractAddr   = flag.String("a", "loombench", "")
+	contractMethod = flag.String("m", "Set", "")
+	privateKey     = flag.String("p", "genkey", "")
 )
 
 var usage = `Usage: loombench [options...] 
@@ -151,9 +152,9 @@ func main() {
 		Timeout:           *t,
 		WriteURL:          *writeURL,
 		ReadURL:           *readURL,
-		ChainID: *chainID,
-		ContractAddress: *contractAddr,
-		ContractMethod: *contractMethod
+		ChainID:           *chainID,
+		ContractAddress:   *contractAddr,
+		ContractMethod:    *contractMethod,
 		PrivateKey:        *privateKey,
 		DisableKeepAlives: *disableKeepAlives,
 	}

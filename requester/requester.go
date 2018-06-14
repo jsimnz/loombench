@@ -18,6 +18,7 @@ package requester
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +30,9 @@ import (
 
 	"github.com/jsimnz/loombench/loomclient"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/loomnetwork/go-loom/auth"
+	"golang.org/x/crypto/ed25519"
 	"golang.org/x/net/http2"
 )
 
@@ -165,12 +169,12 @@ func (b *Work) Finish() {
 	b.report.finalize(total)
 }
 
-func (b *Work) makeRequest(c *loomclient.ContractClient, rpc *loomclient.DAppChainRPCClient) {
+func (b *Work) makeRequest(lc *loomclient.ContractClient, rpc *loomclient.DAppChainRPCClient) {
 	s := now()
-	var size int64
-	var code int
-	var dnsStart, connStart, resStart, reqStart, delayStart time.Duration
-	var dnsDuration, connDuration, resDuration, reqDuration, delayDuration time.Duration
+	// var size int64
+	// var code int
+	var connStart, resStart, reqStart, delayStart time.Duration
+	var connDuration, resDuration, reqDuration, delayDuration time.Duration
 	// req := cloneRequest(b.Request, b.RequestBody)
 	trace := &httptrace.ClientTrace{
 		GetConn: func(h string) {
@@ -198,7 +202,6 @@ func (b *Work) makeRequest(c *loomclient.ContractClient, rpc *loomclient.DAppCha
 	rpc.UseTrace(trace)
 	// make Loom Call
 	err := lc.Call(b.ContractMethod, b.RequestBody, nil)
-	
 
 	// req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	// resp, err := c.Do(req)
@@ -213,12 +216,12 @@ func (b *Work) makeRequest(c *loomclient.ContractClient, rpc *loomclient.DAppCha
 	finish := t - s
 	b.results <- &result{
 		// statusCode:    code,
-		statusCode: 200 // TODO: Get stausCoec from Loom Call
+		statusCode:    200, // TODO: Get stausCoec from Loom Call
 		duration:      finish,
 		err:           err,
 		contentLength: 0, // TODO: Get ContentLength from Loom Call
 		connDuration:  connDuration,
-		dnsDuration:   dnsDuration,
+		// dnsDuration:   dnsDuration,
 		reqDuration:   reqDuration,
 		resDuration:   resDuration,
 		delayDuration: delayDuration,
@@ -237,7 +240,7 @@ func (b *Work) runWorker(client *http.Client, n int) {
 		}
 	}
 
-	lc, rpc, err := b.createWorkerClients(httpclient) // Create Loom Client
+	lc, rpc, err := b.createWorkerClients(client) // Create Loom Client
 	if err != nil {
 		panic(err)
 	}
@@ -287,31 +290,32 @@ func (b *Work) runWorkers() {
 	wg.Wait()
 }
 
-func (b *Work) createWorkerClients(httpclient *http.Client) (*client.Contract, *loomclient.DAppChainRPCClient, error) {
+func (b *Work) createWorkerClients(httpclient *http.Client) (*loomclient.ContractClient, *loomclient.DAppChainRPCClient, error) {
 	// create signer
-	var signer *auth.Signer
+	// var signer *auth.Signer
+	var privKey []byte
 	var err error
-	if b.PrivateKey = "genkey" {
-		_, privKey, err := ed25519.GenerateKey(nil)
+	if b.PrivateKey == "genkey" {
+		_, privKey, err = ed25519.GenerateKey(nil)
 	} else {
 		privKeyB64, err := ioutil.ReadFile(b.PrivateKey)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 
-		privKey, err := base64.StdEncoding.DecodeString(string(privKeyB64))
+		privKey, err = base64.StdEncoding.DecodeString(string(privKeyB64))
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	signer := auth.NewEd25519Signer(privKey)
 
-	rpcClient := loomclient.NewDappChainRPCClient(httpclient, b.ChainID, b.WriteURL, b.ReadURL)
+	rpcClient := loomclient.NewDAppChainRPCClient(httpclient, b.ChainID, b.WriteURL, b.ReadURL)
 	client, err := loomclient.NewContractClient(b.ContractAddress, b.ChainID, signer, rpcClient)
-	
+
 	return client, rpcClient, err
 }
 

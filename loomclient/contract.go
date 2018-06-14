@@ -5,29 +5,33 @@ import (
 	"encoding/hex"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	loom "github.com/loomnetwork/go-loom"
-	"github.com/loomnetwork/go-loom/client"
 	"github.com/loomnetwork/go-loom/auth"
+	// "github.com/loomnetwork/go-loom/client"
 )
 
 type ContractClient struct {
-	c *client.Contract
-	chainID string
-	signer *authSigner
+	c         *Contract
+	chainID   string
+	signer    auth.Signer
 	rpcClient *DAppChainRPCClient
 }
 
-func NewContractClient(contractAddr, chainID string, signer *auth.Signer, rpcClient *DAppChainRPCClient) (*ContractClient, error) {
+func NewContractClient(contractAddr, chainID string, signer auth.Signer, rpcClient *DAppChainRPCClient) (*ContractClient, error) {
 	contract := &ContractClient{
-		chainID: chainID,
-		signer: signer,
+		chainID:   chainID,
+		signer:    signer,
 		rpcClient: rpcClient,
 	}
 
-	addr := contract.resolveAddress(contractAddr)
-	contract.c = client.NewContract(rpcClient, addr.Local)
+	addr, err := contract.resolveAddress(contractAddr)
+	if err != nil {
+		return nil, err
+	}
+	contract.c = NewContract(rpcClient, addr.Local)
 
-	return contract
+	return contract, nil
 }
 
 func (contract *ContractClient) Call(method string, params proto.Message, result interface{}) error {
@@ -46,7 +50,7 @@ func (contract *ContractClient) parseAddress(s string) (loom.Address, error) {
 		return addr, nil
 	}
 
-	b, err := ParseBytes(s)
+	b, err := parseBytes(s)
 	if len(b) != 20 {
 		return loom.Address{}, loom.ErrInvalidAddress
 	}

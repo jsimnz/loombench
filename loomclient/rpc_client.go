@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 )
 
@@ -47,9 +48,9 @@ func NewRPCRequest(method string, params json.RawMessage, id string) RPCRequest 
 }
 
 type JSONRPCClient struct {
-	host   string
-	client *http.Client
-	reqMaker func(*http.Requests) *http.Request
+	host     string
+	client   *http.Client
+	reqMaker func(*http.Request) *http.Request
 }
 
 type TracedJSONRPCClient struct {
@@ -73,10 +74,28 @@ func newHTTPDialer(host string) func(string, string) (net.Conn, error) {
 	}
 }
 
+func DefaultHTTPClient(host string) *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			Dial: newHTTPDialer(host),
+		},
+	}
+}
+
 func NewJSONRPCClient(client *http.Client, host string) *JSONRPCClient {
-	client.Transport.Dial = newHTTPDialer(host)
+	if client.Transport == nil {
+		tr := &http.Transport{
+			Dial: newHTTPDialer(host),
+		}
+		client.Transport = tr
+	} else if tr := client.Transport.(*http.Transport); tr.Dial == nil {
+		// tr := client.Transport.(*http.Transport)
+		tr.Dial = newHTTPDialer(host)
+		client.Transport = tr
+	}
+
 	return &JSONRPCClient{
-		host: host,
+		host:   host,
 		client: client,
 	}
 }
@@ -103,8 +122,8 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, id st
 	if err != nil {
 		return err
 	}
-	req := NewRPCRequest(method, paramsBytes, id)
-	reqBytes, err := json.Marshal(req)
+	rpcReq := NewRPCRequest(method, paramsBytes, id)
+	reqBytes, err := json.Marshal(rpcReq)
 	if err != nil {
 		return err
 	}

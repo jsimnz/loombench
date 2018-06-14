@@ -26,26 +26,14 @@ func (self *SimpleStore) Init(ctx contract.Context, req *plugin.Request) error {
 	return nil
 }
 
-func (self *SimpleStore) Set(ctx contract.Context, params *types.SetParams) error {
+func (self *SimpleStore) Set(ctx contract.Context, params *types.LoomBenchWriteTx) error {
 	return ctx.Set(params.Key, params)
 }
 
-func (self *SimpleStore) SetEcho(ctx contract.Context, params *types.SetParams) (*types.QueryResult, error) {
-	if err := ctx.Set(params.Key, params); err != nil {
-		return nil, err
-	}
-	return self.doGet(ctx, params.Key)
-}
-
-func (self *SimpleStore) Get(ctx contract.StaticContext, params *types.QueryParams) (*types.QueryResult, error) {
-	return self.doGet(ctx, params.Key)
-}
-
-func (self *SimpleStore) doGet(ctx contract.StaticContext, key []byte) (*types.QueryResult, error) {
-	var result types.QueryResult
+func (self *SimpleStore) Get(ctx contract.StaticContext, params *types.LoomBenchReadTx) (*types.LoomBenchResp, error) {
+	var result types.LoomBenchResp
 	if err := ctx.Get(key, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
