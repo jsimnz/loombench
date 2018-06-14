@@ -53,6 +53,7 @@ var (
 
 	writeURL   = flag.String("w", "http://localhost:46658/rpc", "")
 	readURL    = flag.String("r", "http://localhost:46658/query", "")
+	chainID = flag.String("i", "default", "")
 	privateKey = flag.String("p", "genkey", "")
 )
 
@@ -86,7 +87,8 @@ Flags:
   -w  Write URL for submitting transactions to a Loom DAppChain 
       Default: http://localhost:46658/rpc.
   -r  Read URL for retrieving transactions from a Loom DAppChain 
-      Default: http://localhost:46658/query.
+	  Default: http://localhost:46658/query.
+  -i  Chain ID for the Loom DAppChain.
   -p  Private key file to read the signing private key from.
       A value of 'genkey' will generate a key on demand for the entire benchmark
       session.
@@ -146,6 +148,7 @@ func main() {
 		Timeout:           *t,
 		WriteURL:          *writeURL,
 		ReadURL:           *readURL,
+		ChainID: *chainID,
 		PrivateKey:        *privateKey,
 		DisableKeepAlives: *disableKeepAlives,
 	}
