@@ -264,10 +264,10 @@ func (b *Work) runWorkers() {
 	wg.Add(b.C)
 
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-			ServerName:         b.Request.Host,
-		},
+		// TLSClientConfig: &tls.Config{
+		// 	InsecureSkipVerify: true,
+		// 	ServerName:         b.Request.Host,
+		// },
 		MaxIdleConnsPerHost: min(b.C, maxIdleConn),
 		DisableCompression:  b.DisableCompression,
 		DisableKeepAlives:   b.DisableKeepAlives,

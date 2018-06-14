@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/jsimnz/loombench/requester"
+	"github.com/jsimnz/loombench/types"
 )
 
 const (
@@ -141,9 +142,15 @@ func main() {
 		}
 	}
 
+	// Craft transaction body
+	body := &types.LoomBenchWriteTx{
+		Key: []byte("hello"),
+		Val: []byte("world"),
+	}
+
 	w := &requester.Work{
 		// Request:           req,
-		// RequestBody:       bodyAll,
+		RequestBody:       body,
 		TransactionType:   *transactions,
 		Ratio:             *ratio,
 		N:                 num,
