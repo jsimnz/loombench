@@ -122,6 +122,10 @@ type Work struct {
 	stopCh   chan struct{}
 	start    time.Duration
 
+	// Progress tracking
+	UseProgress bool
+	Progress    chan struct{}
+
 	report *report
 }
 
@@ -137,6 +141,9 @@ func (b *Work) Init() {
 	b.initOnce.Do(func() {
 		b.results = make(chan *result, min(b.C*1000, maxResult))
 		b.stopCh = make(chan struct{}, b.C)
+		if b.UseProgress {
+			b.Progress = make(chan struct{}, 2)
+		}
 	})
 }
 
@@ -225,6 +232,10 @@ func (b *Work) makeRequest(lc *loomclient.ContractClient, rpc *loomclient.DAppCh
 		reqDuration:   reqDuration,
 		resDuration:   resDuration,
 		delayDuration: delayDuration,
+	}
+
+	if b.UseProgress {
+		b.Progress <- struct{}{}
 	}
 }
 

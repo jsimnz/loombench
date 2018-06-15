@@ -31,6 +31,8 @@ import (
 
 	"github.com/jsimnz/loombench/requester"
 	"github.com/jsimnz/loombench/types"
+
+	"github.com/cheggaaa/pb"
 )
 
 const (
@@ -55,7 +57,7 @@ var (
 	writeURL       = flag.String("w", "http://localhost:46658/rpc", "")
 	readURL        = flag.String("r", "http://localhost:46658/query", "")
 	chainID        = flag.String("i", "default", "")
-	contractAddr   = flag.String("a", "loombench", "")
+	contractAddr   = flag.String("a", "SimpleStore", "")
 	contractMethod = flag.String("m", "Set", "")
 	privateKey     = flag.String("p", "genkey", "")
 )
@@ -91,12 +93,12 @@ Flags:
       Default: http://localhost:46658/rpc.
   -r  Read URL for retrieving transactions from a Loom DAppChain 
 	  Default: http://localhost:46658/query.
-  -i  Chain ID for the Loom DAppChain.
-  -a  Address of the contract to execute on the Loom DAppChain (default: loombench)
-  -m  Method to invoke when calling the Loom Contract
-  -p  Private key file to read the signing private key from.
+  -i  Chain ID for the Loom DAppChain. Default: default.
+  -a  Address of the contract to execute on the Loom DAppChain. Default: SimpleStore
+  -m  Method to invoke when calling the Loom Contract. Default: Set.
+  -p  Private key file to read the signing private key from. Default: genkey
       A value of 'genkey' will generate a key on demand for the entire benchmark
-      session.
+      session. Note a key will be generated for each batch of concurrent requests.
 
   Config
   ======
@@ -116,11 +118,20 @@ func main() {
 	}
 
 	flag.Parse()
-	var tt string = *transactions
-	if len(tt) <= 0 {
+	if flag.NArg() <= 0 {
 		usageAndExit("")
+	} else if flag.Args()[0] == "run" {
+		runCmd()
+	} else if flag.Args()[0] == "install" {
+		installCmd()
 	}
+}
 
+func installCmd() {
+
+}
+
+func runCmd() {
 	runtime.GOMAXPROCS(*cpus)
 	num := *n
 	conc := *c
@@ -164,6 +175,7 @@ func main() {
 		ContractMethod:    *contractMethod,
 		PrivateKey:        *privateKey,
 		DisableKeepAlives: *disableKeepAlives,
+		UseProgress:       true,
 	}
 	w.Init()
 
@@ -179,6 +191,22 @@ func main() {
 			w.Stop()
 		}()
 	}
+
+	// progress bar
+	go func() {
+		count := num
+		bar := pb.StartNew(count)
+		for _ = range w.Progress {
+			bar.Increment()
+			// time.Sleep(time.Millisecond)
+			if cur := bar.Get(); int(cur) == count-1 {
+				break
+			}
+		}
+		bar.Increment()
+		bar.FinishPrint("Done!")
+	}()
+
 	w.Run()
 }
 

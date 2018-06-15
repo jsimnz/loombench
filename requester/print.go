@@ -86,8 +86,8 @@ Latency distribution:{{ range .LatencyDistribution }}
   {{ .Percentage }}%% in {{ formatNumber .Latency }} secs{{ end }}
 
 Details (average, fastest, slowest):
-  DNS+dialup:	{{ formatNumber .AvgConn }} secs, {{ formatNumber .Fastest }} secs, {{ formatNumber .Slowest }} secs
-  DNS-lookup:	{{ formatNumber .AvgDNS }} secs, {{ formatNumber .DnsMax }} secs, {{ formatNumber .DnsMin }} secs
+  {{/* DNS+dialup:	{{ formatNumber .AvgConn }} secs, {{ formatNumber .Fastest }} secs, {{ formatNumber .Slowest }} secs
+  DNS-lookup:	{{ formatNumber .AvgDNS }} secs, {{ formatNumber .DnsMax }} secs, {{ formatNumber .DnsMin }} secs */}}
   req write:	{{ formatNumber .AvgReq }} secs, {{ formatNumber .ReqMax }} secs, {{ formatNumber .ReqMin }} secs
   resp wait:	{{ formatNumber .AvgDelay }} secs, {{ formatNumber .DelayMax }} secs, {{ formatNumber .DelayMin }} secs
   resp read:	{{ formatNumber .AvgRes }} secs, {{ formatNumber .ResMax }} secs, {{ formatNumber .ResMin }} secs
