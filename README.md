@@ -17,7 +17,7 @@ go get github.com/jsimnz/loombench
 ```
 After you have run the above `go get` command, you'll also need to install the associated Go Contract that is used by default. 
 ```
-loombench install -p /path/to/loom/directory
+loombench install -p /path/to/loom/directory -update-genesis
 ```
 Alternatively you may use your own Contract, but isn't fully documented yet.
 
@@ -86,6 +86,7 @@ Flags:
 - Optimize request creation to reduce overhead
 - More seemless contract install process
 - Document alternative contract usage.
+- Add support for calling EVM contracts
 
 ### Credits
 Written by John-Alan Simmons. Based heavily on the http benchmark utility [rakyll/hey](https://github.com/rakyll/hey).

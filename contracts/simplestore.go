@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/jsimnz/loombench/types"
+	"github.com/jsimnz/loombench/version"
 
 	"github.com/loomnetwork/go-loom/plugin"
 	contract "github.com/loomnetwork/go-loom/plugin/contractpb"
@@ -18,7 +19,7 @@ var Contract plugin.Contract = contract.MakePluginContract(&SimpleStore{})
 func (self *SimpleStore) Meta() (plugin.Meta, error) {
 	return plugin.Meta{
 		Name:    "SimpleStore",
-		Version: "0.0.1",
+		Version: version.ContractVersion,
 	}, nil
 }
 
@@ -32,7 +33,7 @@ func (self *SimpleStore) Set(ctx contract.Context, params *types.LoomBenchWriteT
 
 func (self *SimpleStore) Get(ctx contract.StaticContext, params *types.LoomBenchReadTx) (*types.LoomBenchResp, error) {
 	var result types.LoomBenchResp
-	if err := ctx.Get(key, &result); err != nil {
+	if err := ctx.Get(params.Key, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

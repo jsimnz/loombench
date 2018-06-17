@@ -18,21 +18,25 @@ package main
 import (
 	"flag"
 	"fmt"
-	// "io/ioutil"
+	"io/ioutil"
 	"math"
+	"strings"
 	// "net/http"
 	// gourl "net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	// "regexp"
 	"runtime"
 	// "strings"
 	"time"
 
+	"github.com/jsimnz/loombench/version"
 	"github.com/jsimnz/loombench/requester"
 	"github.com/jsimnz/loombench/types"
 
 	"github.com/cheggaaa/pb"
+	"github.com/Jeffail/gabs"
 )
 
 const (
@@ -60,6 +64,9 @@ var (
 	contractAddr   = flag.String("a", "SimpleStore", "")
 	contractMethod = flag.String("m", "Set", "")
 	privateKey     = flag.String("p", "genkey", "")
+	directory = flag.String("d", "", "")
+	gitPath = flag.String("g", "$GOPATH/src/github.com/jsimnz/loombench", "")
+	updateGenesis = flag.Bool("update-genesis", false, "")
 )
 
 var usage = `Usage: loombench [options...] 
@@ -98,14 +105,17 @@ Flags:
   -m  Method to invoke when calling the Loom Contract. Default: Set.
   -p  Private key file to read the signing private key from. Default: genkey
       A value of 'genkey' will generate a key on demand for the entire benchmark
-      session. Note a key will be generated for each batch of concurrent requests.
+	  session. Note a key will be generated for each batch of concurrent requests.
+  -d  Directory containing a Loom DAppChain instance.
+  -g  Path to loombench git source repo. Default: $GOPATH/src/github.com/jsimnz/loombench.
 
   Config
   ======
   -disable-keepalive    Disable keep-alive, prevents re-use of TCP
                         connections between different HTTP requests.
   -cpus                 Number of used cpu cores.
-                        (default for current machine is %d cores)
+						(default for current machine is %d cores)
+  -update-genesis		Update the genesis.json file when available (loombench install)
 
   Advanced
   ========
@@ -117,18 +127,83 @@ func main() {
 		fmt.Fprint(os.Stderr, fmt.Sprintf(usage, runtime.NumCPU()))
 	}
 
+	var cmd string
+	if len(os.Args) > 1 {
+		cmd = os.Args[1]
+		os.Args = append(os.Args[0:1], os.Args[2:]...)
+	}
+
 	flag.Parse()
-	if flag.NArg() <= 0 {
+
+	if cmd == "" {
 		usageAndExit("")
-	} else if flag.Args()[0] == "run" {
+	} else if cmd == "run" {
 		runCmd()
-	} else if flag.Args()[0] == "install" {
+	} else if cmd == "install" {
 		installCmd()
+	} else if cmd == "help" {
+		usageAndExit("")
+	} else {
+		usageAndExit(fmt.Sprintf("%s is not a command", cmd))
 	}
 }
 
 func installCmd() {
+	// build contract
+	if *directory == "" {
+		fmt.Println("Directory:", *directory)
+		usageAndExit("Need to specify Loom DAppChain directory to install to")
+	}
+	
+	var genesisFileBuf []byte
+	var err error
+	genesisPath := (*directory) + "/genesis.json"
+	if *updateGenesis {
+		genesisFileBuf, err = ioutil.ReadFile(genesisPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+	outputFile := (*directory) + "/contracts/simplestore." + version.ContractVersion
 
+	if strings.Contains(*gitPath, "$GOPATH") {
+		*gitPath = strings.Replace(*gitPath, "$GOPATH", os.Getenv("GOPATH"), -1)
+	}
+	contractSrcFile := (*gitPath) + "/contracts/simplestore.go"
+	buildCmdArgs := []string{
+		"build",
+		"-o", outputFile,
+		contractSrcFile,
+	}
+	cmd := exec.Command("go", buildCmdArgs...)
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+	
+	// update genesis file
+	if *updateGenesis {
+		genesisJson, err := gabs.ParseJSON(genesisFileBuf)
+		if err != nil {
+			panic(err)
+		}
+
+		contractEntry := map[string]interface{}{
+            "vm": "plugin",
+            "format": "plugin",
+            "name": "SimpleStore",
+            "location": "simplestore:0.0.2",
+            "init": nil,
+		}
+		genesisJson.ArrayAppendP(contractEntry, "contracts")
+		// TODO: Fix JSON generation value ordering
+		err = ioutil.WriteFile(genesisPath, genesisJson.BytesIndent("", "\t"), 0777)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("Installed to", (*directory))
 }
 
 func runCmd() {
