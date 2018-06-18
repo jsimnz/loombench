@@ -66,6 +66,8 @@ var (
 	privateKey     = flag.String("p", "genkey", "")
 	directory = flag.String("d", "", "")
 	gitPath = flag.String("g", "$GOPATH/src/github.com/jsimnz/loombench", "")
+
+	rawRequest = flag.Bool("raw-request", false, "")
 	updateGenesis = flag.Bool("update-genesis", false, "")
 )
 
@@ -115,6 +117,7 @@ Flags:
                         connections between different HTTP requests.
   -cpus                 Number of used cpu cores.
 						(default for current machine is %d cores)
+  -raw-request			Craft a raw marshalled protobuf request ahead of time (optimization)
   -update-genesis		Update the genesis.json file when available (loombench install)
 
   Advanced
@@ -237,6 +240,7 @@ func runCmd() {
 	w := &requester.Work{
 		// Request:           req,
 		RequestBody:       body,
+		UseRawRequest: *rawRequest,
 		TransactionType:   *transactions,
 		Ratio:             *ratio,
 		N:                 num,

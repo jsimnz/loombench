@@ -3,6 +3,7 @@ package loomclient
 import (
 	"errors"
 	"reflect"
+	"encoding/json"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/loomnetwork/go-loom"
@@ -120,4 +121,82 @@ func (c *Contract) StaticCall(method string, args proto.Message, caller loom.Add
 		}
 	}
 	return nil, nil
+}
+
+// return txBytes
+func (c *Contract) CraftCallTx(method string, args proto.Message, signer auth.Signer) ([]byte, error) {
+	argsBytes, err := proto.Marshal(args)
+	if err != nil {
+		return nil, err
+	}
+	methodCallBytes, err := proto.Marshal(&plugin.ContractMethodCall{
+		Method: method,
+		Args:   argsBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	requestBytes, err := proto.Marshal(&plugin.Request{
+		ContentType: plugin.EncodingType_PROTOBUF3,
+		Accept:      plugin.EncodingType_PROTOBUF3,
+		Body:        methodCallBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	callTxBytes, err := proto.Marshal(&vm.CallTx{
+		VmType: vm.VMType_PLUGIN,
+		Input:  requestBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	callerAddr := loom.Address{
+		ChainID: c.client.GetChainID(),
+		Local:   loom.LocalAddressFromPublicKey(signer.PublicKey()),
+	}
+
+	msgTxBytes, err := proto.Marshal(&vm.MessageTx{
+		From: callerAddr.MarshalPB(),
+		To:   c.Address.MarshalPB(),
+		Data: callTxBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return proto.Marshal(&types.Transaction{
+		Id:   2,
+		Data: msgTxBytes,
+	})
+}
+
+// returns txParamsBytes
+func (c *Contract) SignTxBytes(txBytes []byte, nonce uint64, signer auth.Signer) ([]byte, error) {
+	nonceTxBytes, err := proto.Marshal(&auth.NonceTx{
+		Inner:    txBytes,
+		Sequence: nonce,
+	})
+	if err != nil {
+		return nil, err
+	}
+	signedTxBytes, err := proto.Marshal(auth.SignTx(signer, nonceTxBytes))
+	if err != nil {
+		return nil, err
+	}
+	params := map[string]interface{}{
+		"tx": signedTxBytes,
+	}
+
+	return json.Marshal(params)
+}
+
+func (c *Contract) CraftRPCReqBytes(method string, txParamsBytes []byte) ([]byte, error) {
+	rpcReq := NewRPCRequest(method, txParamsBytes, c.client.getNextRequestID())
+	return json.Marshal(rpcReq)
+}
+
+func (c *Contract) CallRaw(tx []byte) error {
+	return c.client.CommitTxRaw(tx)
+	// return err
 }

@@ -119,6 +119,25 @@ func (c *DAppChainRPCClient) CommitTx(signer auth.Signer, tx proto.Message) ([]b
 	return r.DeliverTx.Data, nil
 }
 
+func (c *DAppChainRPCClient) CommitTxRaw(txBytes []byte) error {
+	var r BroadcastTxCommitResult
+	return c.txClient.CallRaw(txBytes, &r)
+	if r.CheckTx.Code != 0 {
+		if len(r.CheckTx.Error) != 0 {
+			return errors.New(r.CheckTx.Error)
+		}
+		return errors.New("CheckTx failed")
+	}
+	if r.DeliverTx.Code != 0 {
+		if len(r.DeliverTx.Error) != 0 {
+			return errors.New(r.DeliverTx.Error)
+		}
+		return errors.New("DeliverTx failed")
+	}
+
+	return nil
+}
+
 func (c *DAppChainRPCClient) Query(caller loom.Address, contractAddr loom.LocalAddress, query proto.Message) ([]byte, error) {
 	queryBytes, err := proto.Marshal(query)
 	if err != nil {

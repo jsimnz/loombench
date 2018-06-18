@@ -34,9 +34,21 @@ func NewContractClient(contractAddr, chainID string, signer auth.Signer, rpcClie
 	return contract, nil
 }
 
+func (contract *ContractClient) GetContract() *Contract {
+	return contract.c
+}
+
 func (contract *ContractClient) Call(method string, params proto.Message, result interface{}) error {
 	_, err := contract.c.Call(method, params, contract.signer, result)
 	return err
+}
+
+func (contract *ContractClient) CraftCallTx(method string, params proto.Message) ([]byte, error) {
+	return contract.c.CraftCallTx(method, params, contract.signer)
+}
+
+func (contract *ContractClient) GetSigner() auth.Signer {
+	return contract.signer
 }
 
 // func (contract *ContractClient) StaticCall() {

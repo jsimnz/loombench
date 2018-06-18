@@ -151,8 +151,42 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, id st
 	if rpcResp.Error != nil {
 		return fmt.Errorf("Response error: %v", rpcResp.Error)
 	}
-	if err := json.Unmarshal(rpcResp.Result, result); err != nil {
-		return fmt.Errorf("error unmarshalling rpc response result: %v", err)
+	if result != nil {
+		if err := json.Unmarshal(rpcResp.Result, result); err != nil {
+			return fmt.Errorf("error unmarshalling rpc response result: %v", err)
+		}
+	}
+	return nil
+}
+
+func (c *JSONRPCClient) CallRaw(reqBytes []byte, result interface{}) error {
+	req, err := http.NewRequest("POST", c.host, bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "text/json")
+	resp, err := c.doReq(req)
+	// resp, err := c.client.Post(c.host, "text/json", )
+
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	var rpcResp RPCResponse
+	if err := json.Unmarshal(respBytes, &rpcResp); err != nil {
+		return fmt.Errorf("error unmarshalling rpc response: %v", err)
+	}
+	if rpcResp.Error != nil {
+		return fmt.Errorf("Response error: %v", rpcResp.Error)
+	}
+	if result != nil {
+		if err := json.Unmarshal(rpcResp.Result, result); err != nil {
+			return fmt.Errorf("error unmarshalling rpc response result: %v", err)
+		}
 	}
 	return nil
 }

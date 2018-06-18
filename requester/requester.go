@@ -64,6 +64,12 @@ type Work struct {
 
 	RequestBody proto.Message
 
+	// Raw byte array of a crafted request body
+	RequestBodyRaw []byte
+
+	// UseRawRequest is an option to craft the raw binary marshalled protobuf ahead of time
+	UseRawRequest bool
+
 	// N is the total number of requests to make.
 	N int
 
@@ -176,7 +182,7 @@ func (b *Work) Finish() {
 	b.report.finalize(total)
 }
 
-func (b *Work) makeRequest(lc *loomclient.ContractClient, rpc *loomclient.DAppChainRPCClient) {
+func (b *Work) makeRequest(lc *loomclient.ContractClient, rpc *loomclient.DAppChainRPCClient, nonce uint64) {
 	s := now()
 	// var size int64
 	// var code int
@@ -208,7 +214,22 @@ func (b *Work) makeRequest(lc *loomclient.ContractClient, rpc *loomclient.DAppCh
 	// add traceclient to DAppChainRPCClient
 	rpc.UseTrace(trace)
 	// make Loom Call
-	err := lc.Call(b.ContractMethod, b.RequestBody, nil)
+	var err error
+	if b.UseRawRequest {
+		var signedTxBytes, rpcReqBytes []byte
+		contract := lc.GetContract()
+		signedTxBytes, err = contract.SignTxBytes(b.RequestBodyRaw, nonce, lc.GetSigner())
+		if err != nil {
+			panic(err)
+		}
+		rpcReqBytes, err = contract.CraftRPCReqBytes("broadcast_tx_commit", signedTxBytes)
+		if err != nil {
+			panic(err)
+		}
+		err = contract.CallRaw(rpcReqBytes)
+	} else {
+		err = lc.Call(b.ContractMethod, b.RequestBody, nil)
+	}
 
 	// req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	// resp, err := c.Do(req)
@@ -237,6 +258,8 @@ func (b *Work) makeRequest(lc *loomclient.ContractClient, rpc *loomclient.DAppCh
 	if b.UseProgress {
 		b.Progress <- struct{}{}
 	}
+
+	// return err
 }
 
 func (b *Work) runWorker(client *http.Client, n int) {
@@ -255,6 +278,20 @@ func (b *Work) runWorker(client *http.Client, n int) {
 	if err != nil {
 		panic(err)
 	}
+	
+	nonce := uint64(0)
+	// var err error
+	if b.UseRawRequest {
+		signer := lc.GetSigner()
+		b.RequestBodyRaw, err = lc.GetContract().CraftCallTx(b.ContractMethod, b.RequestBody, signer)
+		if err != nil {
+			panic(err)
+		}
+		nonce, err = rpc.GetNonce(signer)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	for i := 0; i < n; i++ {
 		// Check if application is stopped. Do not send into a closed channel.
@@ -265,7 +302,8 @@ func (b *Work) runWorker(client *http.Client, n int) {
 			if b.QPS > 0 {
 				<-throttle
 			}
-			b.makeRequest(lc, rpc)
+			b.makeRequest(lc, rpc, nonce)
+			nonce++
 		}
 	}
 }
