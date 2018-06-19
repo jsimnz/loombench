@@ -1,9 +1,9 @@
 package loomclient
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
-	"encoding/json"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/loomnetwork/go-loom"
@@ -171,6 +171,11 @@ func (c *Contract) CraftCallTx(method string, args proto.Message, signer auth.Si
 	})
 }
 
+//easyjson:json
+type SignTxParams struct {
+	Tx []byte `json:"tx"`
+}
+
 // returns txParamsBytes
 func (c *Contract) SignTxBytes(txBytes []byte, nonce uint64, signer auth.Signer) ([]byte, error) {
 	nonceTxBytes, err := proto.Marshal(&auth.NonceTx{
@@ -184,9 +189,12 @@ func (c *Contract) SignTxBytes(txBytes []byte, nonce uint64, signer auth.Signer)
 	if err != nil {
 		return nil, err
 	}
-	params := map[string]interface{}{
-		"tx": signedTxBytes,
+	params := SignTxParams{
+		Tx: signedTxBytes,
 	}
+	// params := map[string]interface{}{
+	// 	"tx": signedTxBytes,
+	// }
 
 	return json.Marshal(params)
 }

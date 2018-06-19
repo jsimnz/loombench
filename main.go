@@ -31,12 +31,12 @@ import (
 	// "strings"
 	"time"
 
-	"github.com/jsimnz/loombench/version"
 	"github.com/jsimnz/loombench/requester"
 	"github.com/jsimnz/loombench/types"
+	"github.com/jsimnz/loombench/version"
 
-	"github.com/cheggaaa/pb"
 	"github.com/Jeffail/gabs"
+	"github.com/cheggaaa/pb"
 )
 
 const (
@@ -64,11 +64,14 @@ var (
 	contractAddr   = flag.String("a", "SimpleStore", "")
 	contractMethod = flag.String("m", "Set", "")
 	privateKey     = flag.String("p", "genkey", "")
-	directory = flag.String("d", "", "")
-	gitPath = flag.String("g", "$GOPATH/src/github.com/jsimnz/loombench", "")
+	directory      = flag.String("d", "", "")
+	gitPath        = flag.String("g", "$GOPATH/src/github.com/jsimnz/loombench", "")
 
-	rawRequest = flag.Bool("raw-request", false, "")
 	updateGenesis = flag.Bool("update-genesis", false, "")
+
+	//optimization
+	rawRequest = flag.Bool("raw-request", false, "")
+	fastJson   = flag.Bool("fast-json", false, "")
 )
 
 var usage = `Usage: loombench [options...] 
@@ -117,8 +120,12 @@ Flags:
                         connections between different HTTP requests.
   -cpus                 Number of used cpu cores.
 						(default for current machine is %d cores)
-  -raw-request			Craft a raw marshalled protobuf request ahead of time (optimization)
   -update-genesis		Update the genesis.json file when available (loombench install)
+
+  Optimizations
+  =============
+  -raw-request	Craft a raw marshalled protobuf request ahead of time.
+  -fast-json	Use a faster json encoder, requires -raw-request to be true. 		
 
   Advanced
   ========
@@ -157,7 +164,7 @@ func installCmd() {
 		fmt.Println("Directory:", *directory)
 		usageAndExit("Need to specify Loom DAppChain directory to install to")
 	}
-	
+
 	var genesisFileBuf []byte
 	var err error
 	genesisPath := (*directory) + "/genesis.json"
@@ -183,7 +190,7 @@ func installCmd() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// update genesis file
 	if *updateGenesis {
 		genesisJson, err := gabs.ParseJSON(genesisFileBuf)
@@ -192,11 +199,11 @@ func installCmd() {
 		}
 
 		contractEntry := map[string]interface{}{
-            "vm": "plugin",
-            "format": "plugin",
-            "name": "SimpleStore",
-            "location": "simplestore:0.0.2",
-            "init": nil,
+			"vm":       "plugin",
+			"format":   "plugin",
+			"name":     "SimpleStore",
+			"location": "simplestore:0.0.2",
+			"init":     nil,
 		}
 		genesisJson.ArrayAppendP(contractEntry, "contracts")
 		// TODO: Fix JSON generation value ordering
@@ -237,10 +244,14 @@ func runCmd() {
 		Val: []byte("world"),
 	}
 
+	if *fastJson && !(*rawRequest) {
+		usageAndExit("Fast JSON optimization requires the -raw-request flag")
+	}
+
 	w := &requester.Work{
 		// Request:           req,
 		RequestBody:       body,
-		UseRawRequest: *rawRequest,
+		UseRawRequest:     *rawRequest,
 		TransactionType:   *transactions,
 		Ratio:             *ratio,
 		N:                 num,

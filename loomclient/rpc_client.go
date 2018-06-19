@@ -11,6 +11,7 @@ import (
 	"net/url"
 )
 
+//easyjson:json
 type RPCRequest struct {
 	Version string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
@@ -18,6 +19,7 @@ type RPCRequest struct {
 	ID      string          `json:"id"`
 }
 
+//easyjson:json
 type RPCResponse struct {
 	Version string          `json:"jsonrpc"`
 	ID      string          `json:"id"`
@@ -25,6 +27,7 @@ type RPCResponse struct {
 	Error   *RPCError       `json:"error,omitempty"`
 }
 
+//easyjson:json
 type RPCError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -159,7 +162,7 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, id st
 	return nil
 }
 
-func (c *JSONRPCClient) CallRaw(reqBytes []byte, result interface{}) error {
+func (c *JSONRPCClient) CallRaw(reqBytes []byte, result *BroadcastTxCommitResult) error {
 	req, err := http.NewRequest("POST", c.host, bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
@@ -176,6 +179,7 @@ func (c *JSONRPCClient) CallRaw(reqBytes []byte, result interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	var rpcResp RPCResponse
 	if err := json.Unmarshal(respBytes, &rpcResp); err != nil {
 		return fmt.Errorf("error unmarshalling rpc response: %v", err)

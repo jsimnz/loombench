@@ -32,6 +32,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/loomnetwork/go-loom/auth"
+	// "github.com/mailru/easyjson"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/net/http2"
 )
@@ -69,6 +70,9 @@ type Work struct {
 
 	// UseRawRequest is an option to craft the raw binary marshalled protobuf ahead of time
 	UseRawRequest bool
+
+	// UseFastJSON is an option to use an alternate JSON encoder to increase performace.
+	UseFastJSON bool
 
 	// N is the total number of requests to make.
 	N int
@@ -148,7 +152,7 @@ func (b *Work) Init() {
 		b.results = make(chan *result, min(b.C*1000, maxResult))
 		b.stopCh = make(chan struct{}, b.C)
 		if b.UseProgress {
-			b.Progress = make(chan struct{}, 2)
+			b.Progress = make(chan struct{}, b.C*2)
 		}
 	})
 }
@@ -278,7 +282,7 @@ func (b *Work) runWorker(client *http.Client, n int) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	nonce := uint64(0)
 	// var err error
 	if b.UseRawRequest {

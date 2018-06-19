@@ -14,12 +14,14 @@ import (
 	"github.com/loomnetwork/go-loom/vm"
 )
 
+//easyjson:json
 type TxHandlerResult struct {
 	Code  int32  `json:"code"`
 	Error string `json:"log"`
 	Data  []byte `json:"data"`
 }
 
+//easyjson:json
 type BroadcastTxCommitResult struct {
 	CheckTx   TxHandlerResult `json:"check_tx"`
 	DeliverTx TxHandlerResult `json:"deliver_tx"`
